@@ -139,25 +139,23 @@
     const RAW_SHEET = "Survey Responses";
     const OVW_SHEET = "Response overview";
 
-    async function fetchSheet(name) {
+    async function fetchSheet(name){
       const url = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(name)}`;
       const raw = await fetch(url).then(r => r.text());
       return JSON.parse(raw.substring(47, raw.length - 2));
     }
 
-    function extractEvent(r) {
-      return r["Which Event Would You Like To Survey?"] ||
-             r["Which Student Market Would You Like To Survey?"] ||
-             r["Event Name"] || "Unknown Event";
+    function extractEvent(r){
+      return r["Which Event Would You Like To Survey?"] || r["Which Student Market Would You Like To Survey?"] || r["Event Name"] || "Unknown Event";
     }
 
-    function stars(n) {
+    function stars(n){
       if (!n) return "";
       const s = Math.round(n);
       return "★★★★★".slice(0, s) + "☆☆☆☆☆".slice(0, 5 - s);
     }
 
-    function createPDFButton(eventName, detailsEl, ratingMap, briefMap) {
+    function createPDFButton(eventName, detailsEl, ratingMap, briefMap){
       const btn = document.createElement("button");
       btn.textContent = "Download PDF";
       btn.className = "pdf-btn";
@@ -167,20 +165,22 @@
         const rating = ratingMap[eventName];
         const thoughts = briefMap[eventName];
         const html = `
-          <html><head><title>${eventName} Feedback</title>
-          <style>body{font-family:Arial;padding:2rem;color:#000;}
-          .response{margin-bottom:1rem;border:1px solid #ccc;padding:1rem;border-radius:8px;}
-          .review-title{font-weight:bold;margin-bottom:0.5rem;}
-          .label{font-weight:bold;font-size:0.85rem;margin-bottom:0.2rem;}
-          .value{font-size:1rem;margin-bottom:0.6rem;}
-          .summary-box{padding:1rem;background:#f0f0f0;border:1px solid #ccc;border-radius:8px;margin-bottom:1.5rem;}
-          .stars{font-size:0.95rem;color:#444;}
-          .thoughts{font-size:0.85rem;font-style:italic;color:#555;margin-top:0.3rem;}
+          <html><head><title>${eventName}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 2rem; color: #000; }
+            .response { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; }
+            .review-title { font-weight: bold; margin-bottom: 0.5rem; }
+            .label { font-weight: bold; font-size: 0.85rem; margin-bottom: 0.2rem; }
+            .value { font-size: 1rem; margin-bottom: 0.6rem; }
+            .summary-box { background: #f0f0f0; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
+            .stars { font-size: 0.95rem; color: #444; }
+            .thoughts { font-style: italic; font-size: 0.9rem; color: #555; margin-top: 0.3rem; }
           </style></head><body>
-          <div class='summary-box'><h2>${eventName}</h2>
-          ${rating ? `<div class='stars'>${"★".repeat(Math.round(rating))}${"☆".repeat(5 - Math.round(rating))} (${rating.toFixed(1)}/5.0)</div>` : ""}
-          ${thoughts ? `<div class='thoughts'>${thoughts}</div>` : ""}
-          </div>${responsesHTML}</body></html>`;
+          <div class="summary-box"><h2>${eventName}</h2>
+          ${rating ? `<div class="stars">${"★".repeat(Math.round(rating))}${"☆".repeat(5 - Math.round(rating))} (${rating.toFixed(1)}/5.0)</div>` : ""}
+          ${thoughts ? `<div class="thoughts">${thoughts}</div>` : ""}
+          </div>${responsesHTML}</body></html>
+        `;
         const win = window.open("", "_blank");
         win.document.write(html);
         win.document.close();
@@ -191,15 +191,10 @@
     }
 
     (async () => {
-      const [overview, rawRes] = await Promise.all([
-        fetchSheet(OVW_SHEET),
-        fetchSheet(RAW_SHEET)
-      ]);
+      const [overview, rawRes] = await Promise.all([fetchSheet(OVW_SHEET), fetchSheet(RAW_SHEET)]);
 
-      const ratingMap = {};
-      const briefMap = {};
+      const ratingMap = {}, briefMap = {};
       const ovwHeaders = overview.table.cols.map(c => c.label);
-
       overview.table.rows.forEach(r => {
         const row = ovwHeaders.reduce((o, h, i) => {
           o[h] = r.c[i] ? r.c[i].v : "";
@@ -235,40 +230,27 @@
         Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0])).forEach(([event, responses]) => {
           if (!event.toLowerCase().includes(filter.toLowerCase())) return;
           hasResults = true;
-
           const det = document.createElement("details");
           const sum = document.createElement("summary");
           const rating = ratingMap[event];
           const overview = briefMap[event];
-
-          sum.innerHTML = `
-            <span class="summary-left">
-              <span class="event-label">${event}</span>
-              <span class="dropdown">▼</span>
-            </span>
-            <span class="stars">${rating ? `${stars(rating)} (${rating.toFixed(1)}/5.0)` : ""}</span>
-          `;
+          sum.innerHTML = `<span class="summary-left"><span class="event-label">${event} (${responses.length} responses)</span><span class="dropdown">▼</span></span><span class="stars">${rating ? `${stars(rating)} (${rating.toFixed(1)}/5.0)` : ""}</span>`;
           det.appendChild(sum);
-
           if (overview) {
             const desc = document.createElement("div");
             desc.className = "overview-text";
             desc.textContent = overview;
             det.appendChild(desc);
           }
-
           const block = document.createElement("div");
           block.className = "response-block";
-
           responses.forEach((res, i) => {
             const div = document.createElement("div");
             div.className = "response";
-
             const title = document.createElement("div");
             title.className = "review-title";
             title.textContent = `Student Survey #${i + 1}`;
             div.appendChild(title);
-
             Object.entries(res).forEach(([label, val]) => {
               if (!val || label.includes("Timestamp") || label.includes("Student ID") || label.includes("Which Event") || label.includes("Which Student Market")) return;
               const field = document.createElement("div");
@@ -276,12 +258,10 @@
               field.innerHTML = `<div class="label">${label}</div><div class="value">${val}</div>`;
               div.appendChild(field);
             });
-
             block.appendChild(div);
           });
-
-          det.appendChild(createPDFButton(event, det, ratingMap, briefMap));
           det.appendChild(block);
+          det.appendChild(createPDFButton(event, det, ratingMap, briefMap));
           dash.appendChild(det);
         });
 
